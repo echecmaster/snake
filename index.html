@@ -3,36 +3,98 @@
 <head>
 <meta charset="UTF-8">
 <title>Snake personnalisable</title>
+
 <style>
-    body {
-        background: #222;
-        color: #fff;
-        font-family: Arial, sans-serif;
-        text-align: center;
-    }
+:root {
+    --accent: #00ff88;
+    --bg-dark: #0f1220;
+    --panel: #1b1f3b;
+    --text: #eaeaff;
+}
 
-    canvas {
-        background: #333;
-        display: block;
-        margin: 20px auto;
-    }
+* {
+    box-sizing: border-box;
+}
 
-    .controls {
-        margin: 10px;
-    }
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, #1f2350, #090b18);
+    color: var(--text);
+    font-family: "Segoe UI", Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
-    select, input, button {
-        margin: 5px;
-        padding: 5px;
-    }
+h1 {
+    margin-top: 20px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(0,255,136,0.4);
+}
+
+.panel {
+    background: var(--panel);
+    padding: 15px 20px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+}
+
+.panel label {
+    font-size: 0.9rem;
+}
+
+.panel select,
+.panel input,
+.panel button {
+    background: #0f1330;
+    border: 1px solid #2f3470;
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 8px;
+    outline: none;
+}
+
+.panel button {
+    cursor: pointer;
+    background: linear-gradient(135deg, #00ff88, #00bb66);
+    color: #000;
+    font-weight: bold;
+    border: none;
+    box-shadow: 0 0 10px rgba(0,255,136,0.4);
+}
+
+.panel button:hover {
+    transform: scale(1.05);
+}
+
+.stats {
+    margin-top: 10px;
+    font-size: 1rem;
+}
+
+canvas {
+    margin: 20px 0;
+    background: #0a0d22;
+    border-radius: 12px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8),
+                0 0 25px rgba(0,0,0,0.8);
+}
 </style>
 </head>
+
 <body>
 
-<h1>🐍 Snake personnalisable</h1>
+<h1>🐍 CHARLELIE SNAKE</h1>
 
-<div class="controls">
-    <label>Grille :</label>
+<div class="panel">
+    <label>Grille</label>
     <select id="gridSize">
         <option value="10">10 x 10 (facile)</option>
         <option value="25">25 x 25</option>
@@ -40,19 +102,26 @@
         <option value="100">100 x 100 (extrême)</option>
     </select>
 
-    <label>Bonbons (1-20) :</label>
+    <label>Bonbons</label>
     <input type="number" id="maxCandies" min="1" max="20" value="5">
 
-    <label>Couleur du snake :</label>
+    <label>Vitesse</label>
+    <select id="speed">
+        <option value="200">Lent</option>
+        <option value="140">Normal</option>
+        <option value="100" selected>Rapide</option>
+    </select>
+
+    <label>Couleur</label>
     <input type="color" id="snakeColor" value="#00ff88">
 
-    <button onclick="startGame()">Démarrer</button>
+    <button onclick="startGame()">Jouer</button>
 </div>
 
-<p>
-🍬 Bonbons mangés : <span id="score">0</span> |
-⏱️ Temps : <span id="time">0</span>s
-</p>
+<div class="stats">
+🍬 <span id="score">0</span> |
+⏱️ <span id="time">0</span>s
+</div>
 
 <canvas id="game"></canvas>
 
@@ -60,78 +129,71 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const CELL_SIZE = 25;
-let gridCount;
-let snake, direction, candies;
-let score, timer, timeInterval, gameInterval;
-let maxCandies;
-let snakeColor;
-let totalCells;
+const CELL = 25;
+let grid, snake, dir, candies;
+let score, timer, speed;
+let loop, chrono;
+let maxCandies, snakeColor, totalCells;
 
 function startGame() {
-    clearInterval(gameInterval);
-    clearInterval(timeInterval);
+    clearInterval(loop);
+    clearInterval(chrono);
 
-    gridCount = parseInt(document.getElementById("gridSize").value);
-    maxCandies = Math.min(20, Math.max(1, parseInt(document.getElementById("maxCandies").value)));
+    grid = +document.getElementById("gridSize").value;
+    speed = +document.getElementById("speed").value;
+    maxCandies = Math.min(20, Math.max(1, +document.getElementById("maxCandies").value));
     snakeColor = document.getElementById("snakeColor").value;
 
-    canvas.width = gridCount * CELL_SIZE;
-    canvas.height = gridCount * CELL_SIZE;
+    canvas.width = grid * CELL;
+    canvas.height = grid * CELL;
 
-    totalCells = gridCount * gridCount;
+    totalCells = grid * grid;
 
-    snake = [{ x: 0, y: 0 }];
-    direction = { x: 1, y: 0 };
+    snake = [{x:0,y:0}];
+    dir = {x:1,y:0};
+    candies = [];
     score = 0;
     timer = 0;
-    candies = [];
 
     document.getElementById("score").textContent = score;
     document.getElementById("time").textContent = timer;
 
     spawnCandies();
 
-    timeInterval = setInterval(() => {
+    chrono = setInterval(() => {
         timer++;
         document.getElementById("time").textContent = timer;
     }, 1000);
 
-    gameInterval = setInterval(gameLoop, 100);
+    loop = setInterval(gameLoop, speed);
 }
 
 function spawnCandies() {
     while (candies.length < maxCandies) {
-        let pos = {
-            x: Math.floor(Math.random() * gridCount),
-            y: Math.floor(Math.random() * gridCount)
+        let p = {
+            x: Math.floor(Math.random() * grid),
+            y: Math.floor(Math.random() * grid)
         };
-
-        if (!snake.some(s => s.x === pos.x && s.y === pos.y)) {
-            candies.push(pos);
+        if (!snake.some(s => s.x === p.x && s.y === p.y)) {
+            candies.push(p);
         }
     }
 }
 
 function gameLoop() {
     const head = {
-        x: snake[0].x + direction.x,
-        y: snake[0].y + direction.y
+        x: snake[0].x + dir.x,
+        y: snake[0].y + dir.y
     };
 
-    // collision mur ou soi-même
     if (
         head.x < 0 || head.y < 0 ||
-        head.x >= gridCount || head.y >= gridCount ||
+        head.x >= grid || head.y >= grid ||
         snake.some(s => s.x === head.x && s.y === head.y)
     ) {
-        if (snake.length === totalCells) {
-            alert("🏆 VICTOIRE ! Tu as rempli toute la grille !");
-        } else {
-            alert("💀 Game Over");
-        }
-        clearInterval(gameInterval);
-        clearInterval(timeInterval);
+        clearInterval(loop);
+        clearInterval(chrono);
+        alert(snake.length === totalCells ? "🏆 VICTOIRE !" : "💀 Game Over");
         return;
     }
 
@@ -148,73 +210,51 @@ function gameLoop() {
         return true;
     });
 
-    if (!eaten) {
-        snake.pop();
-    } else {
-        spawnCandies();
-    }
+    if (!eaten) snake.pop();
+    else spawnCandies();
 
     draw();
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // grille
-    ctx.strokeStyle = "#444";
-    for (let i = 0; i <= gridCount; i++) {
+    ctx.strokeStyle = "#1e2455";
+    for (let i=0;i<=grid;i++) {
         ctx.beginPath();
-        ctx.moveTo(i * CELL_SIZE, 0);
-        ctx.lineTo(i * CELL_SIZE, canvas.height);
+        ctx.moveTo(i*CELL,0);
+        ctx.lineTo(i*CELL,canvas.height);
         ctx.stroke();
-
         ctx.beginPath();
-        ctx.moveTo(0, i * CELL_SIZE);
-        ctx.lineTo(canvas.width, i * CELL_SIZE);
+        ctx.moveTo(0,i*CELL);
+        ctx.lineTo(canvas.width,i*CELL);
         ctx.stroke();
     }
 
-    // snake
     ctx.fillStyle = snakeColor;
     snake.forEach(s => {
-        ctx.fillRect(
-            s.x * CELL_SIZE,
-            s.y * CELL_SIZE,
-            CELL_SIZE,
-            CELL_SIZE
-        );
+        ctx.fillRect(s.x*CELL, s.y*CELL, CELL, CELL);
     });
 
-    // bonbons
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#fff";
     candies.forEach(c => {
         ctx.beginPath();
         ctx.arc(
-            c.x * CELL_SIZE + CELL_SIZE / 2,
-            c.y * CELL_SIZE + CELL_SIZE / 2,
-            CELL_SIZE / 4,
+            c.x*CELL + CELL/2,
+            c.y*CELL + CELL/2,
+            CELL/4,
             0,
-            Math.PI * 2
+            Math.PI*2
         );
         ctx.fill();
     });
 }
 
 document.addEventListener("keydown", e => {
-    switch (e.key) {
-        case "ArrowUp":
-            if (direction.y === 0) direction = { x: 0, y: -1 };
-            break;
-        case "ArrowDown":
-            if (direction.y === 0) direction = { x: 0, y: 1 };
-            break;
-        case "ArrowLeft":
-            if (direction.x === 0) direction = { x: -1, y: 0 };
-            break;
-        case "ArrowRight":
-            if (direction.x === 0) direction = { x: 1, y: 0 };
-            break;
-    }
+    if (e.key==="ArrowUp" && dir.y===0) dir={x:0,y:-1};
+    if (e.key==="ArrowDown" && dir.y===0) dir={x:0,y:1};
+    if (e.key==="ArrowLeft" && dir.x===0) dir={x:-1,y:0};
+    if (e.key==="ArrowRight" && dir.x===0) dir={x:1,y:0};
 });
 </script>
 
